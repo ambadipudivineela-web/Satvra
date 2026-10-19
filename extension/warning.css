@@ -1,0 +1,234 @@
+/* SATVRA Warning Interstitial Styles */
+:root {
+  --bg-primary: #050811;
+  --bg-surface: #0f172a;
+  --border-color: #1e293b;
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --danger: #ef4444;
+  --danger-surface: #450a0a;
+  --accent-cyan: #06b6d4;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.warning-wrapper {
+  max-width: 640px;
+  width: 100%;
+}
+
+.warning-container {
+  background-color: var(--bg-surface);
+  border: 1px solid #7f1d1d;
+  border-radius: 12px;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.alert-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background-color: var(--danger-surface);
+  border: 1px solid #b91c1c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warning-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #f87171;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.warning-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.warning-subtitle {
+  font-size: 14px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.target-domain {
+  font-family: var(--font-mono);
+  background-color: #1e1b4b;
+  color: #a5b4fc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.threat-details-card {
+  background-color: rgba(69, 10, 10, 0.3);
+  border: 1px solid #991b1b;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.threat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.detail-label {
+  color: var(--text-muted);
+}
+
+.detail-value {
+  font-weight: 500;
+  text-align: right;
+}
+
+.text-danger {
+  color: #f87171;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-primary:hover, .btn-primary:focus-visible {
+  background-color: #b91c1c;
+  outline: 2px solid #f87171;
+}
+
+.btn-secondary {
+  padding: 12px 20px;
+  background-color: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #334155;
+}
+
+.advanced-disclosure {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.advanced-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.advanced-content {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.override-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #111827;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #374151;
+}
+
+.override-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.btn-danger-outline {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background-color: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-danger-outline:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #4b5563;
+  color: #9ca3af;
+}
+
+.btn-danger-outline:not(:disabled):hover {
+  background-color: #7f1d1d;
+  color: #ffffff;
+}
+
+.warning-footer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SATVRA — Website Trust & Threat Inspector</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="brand-group">
+        <span class="brand-title">SATVRA</span>
+        <span class="brand-tagline">Trust What You Browse</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-refresh" class="icon-btn" title="Re-check current page" aria-label="Re-check current page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 21h5v-5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-nav" role="tablist">
+      <button id="tab-btn-search" class="tab-btn active" role="tab" aria-selected="true" aria-controls="view-search">Web Search</button>
+      <button id="tab-btn-inspect" class="tab-btn" role="tab" aria-selected="false" aria-controls="view-inspect">Active Tab</button>
+      <button id="tab-btn-official" class="tab-btn" role="tab" aria-selected="false" aria-controls="view-official">Official Sources</button>
+      <button id="tab-btn-privacy" class="tab-btn" role="tab" aria-selected="false" aria-controls="view-privacy">Privacy</button>
+    </nav>
+
+    <!-- Main Content Views -->
+    <main class="popup-content">
+      <!-- Web Search View -->
+      <section id="view-search" class="tab-view active" role="tabpanel">
+        <form id="popup-search-form" class="search-box">
+          <input type="text" id="popup-search-input" placeholder="Search the web (e.g. government jobs)..." class="search-input" autofocus />
+        </form>
+        <div id="popup-search-results" class="results-list">
+          <p class="text-xs text-muted py-3 text-center">Enter any search query above to receive real, verified web results.</p>
+        </div>
+      </section>
+
+      <!-- Active Tab Inspection View -->
+      <section id="view-inspect" class="tab-view hidden" role="tabpanel">
+        <div class="domain-card">
+          <div class="domain-header">
+            <span class="meta-label">Inspected Domain</span>
+            <span id="domain-scheme" class="scheme-badge">HTTPS</span>
+          </div>
+          <h1 id="active-domain" class="domain-title">Loading...</h1>
+          <div class="domain-meta text-xs">
+            <span id="canonical-domain">...</span>
+            <span aria-hidden="true">·</span>
+            <span id="checked-timestamp">Just now</span>
+          </div>
+        </div>
+
+        <!-- Status Card -->
+        <div id="status-card" class="status-card status-loading">
+          <div class="status-top">
+            <div id="status-icon-container" class="status-icon"></div>
+            <div class="status-text-wrap">
+              <span class="meta-label">Risk Evaluation</span>
+              <h2 id="status-headline" class="status-title">Checking Threat Feeds...</h2>
+            </div>
+          </div>
+          <p id="status-explanation" class="status-body">Evaluating normalized destination against threat intelligence and official directories.</p>
+        </div>
+
+        <!-- Official Source Accordion (if matched) -->
+        <div id="official-source-box" class="evidence-box official-box hidden">
+          <div class="box-title-row">
+            <span class="box-title">Audited Official Record</span>
+            <span id="official-jurisdiction" class="jurisdiction-text">United States</span>
+          </div>
+          <h3 id="official-org-name" class="org-name">Internal Revenue Service</h3>
+          <p id="official-desc" class="box-text">Official tax administration portal.</p>
+          <div class="box-footer">
+            <span class="text-xs text-muted">Audited: <span id="official-audit-date">2026-03-15</span></span>
+            <a id="official-ref-link" href="#" target="_blank" class="link-btn">View Citation &rarr;</a>
+          </div>
+        </div>
+
+        <!-- Explanations Box -->
+        <div class="explanation-accordion">
+          <details class="disclosure-group" open>
+            <summary class="disclosure-summary">What this establishes</summary>
+            <p id="what-establishes" class="disclosure-content">Waiting for check completion...</p>
+          </details>
+
+          <details class="disclosure-group">
+            <summary class="disclosure-summary">What this does NOT establish</summary>
+            <p id="what-not-establishes" class="disclosure-content">Absence from threat blocklists does not guarantee absolute safety.</p>
+          </details>
+        </div>
+
+        <!-- Threat Provider Attribution -->
+        <div class="provider-bar">
+          <span class="text-xs text-muted">Provider: <strong id="provider-name">SATVRA Security</strong></span>
+          <span class="text-xs text-muted" id="latency-text">12ms</span>
+        </div>
+      </section>
+
+      <!-- Official Sources Directory View -->
+      <section id="view-official" class="tab-view hidden" role="tabpanel">
+        <div class="search-box">
+          <input type="text" id="official-search-input" placeholder="Search taxes, postal, FAFSA, DMV..." class="search-input" />
+        </div>
+        <p class="text-xs text-muted search-tip">Curated high-risk civic portals. Never invent government domains.</p>
+        <div id="official-results-list" class="results-list"></div>
+      </section>
+
+      <!-- Privacy & Controls View -->
+      <section id="view-privacy" class="tab-view hidden" role="tabpanel">
+        <div class="privacy-notice">
+          <h3 class="text-sm font-semibold">Privacy-First Architecture</h3>
+          <p class="text-xs text-muted">
+            SATVRA strips query strings, URL parameters, fragments, and credentials before threat checking.
+            No personal data or browsing history is collected or sold.
+          </p>
+        </div>
+
+        <div class="settings-list">
+          <div class="setting-row">
+            <label for="toggle-blocking" class="setting-label">
+              <span>Navigation Blocking</span>
+              <span class="setting-sub">Redirect threats to warning page</span>
+            </label>
+            <input type="checkbox" id="toggle-blocking" checked />
+          </div>
+
+          <div class="setting-row">
+            <label for="toggle-anonymize" class="setting-label">
+              <span>Strip URL Query Params</span>
+              <span class="setting-sub">Prevents transmitting private session tokens</span>
+            </label>
+            <input type="checkbox" id="toggle-anonymize" checked />
+          </div>
+        </div>
+
+        <div class="action-footer">
+          <button id="btn-clear-cache" class="btn-secondary w-full">Clear Local Cache & Rules</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <span class="text-xs text-muted">SATVRA v1.0.0-mvp</span>
+      <span aria-hidden="true" class="text-muted">·</span>
+      <span class="text-xs text-muted">Manifest V3</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

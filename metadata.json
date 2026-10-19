@@ -1,0 +1,7 @@
+{
+  "name": "SATVRA — Trust What You Browse",
+  "description": "Privacy-conscious browser security extension and verification testbench. Threat detection, evidence-backed official-source discovery, and explainable website risk analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

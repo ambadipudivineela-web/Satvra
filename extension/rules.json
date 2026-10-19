@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=testsafebrowsing.appspot.com&threatType=phishing"
+      }
+    },
+    "condition": {
+      "urlFilter": "||testsafebrowsing.appspot.com/s/phishing.html",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=testsafebrowsing.appspot.com&threatType=malware"
+      }
+    },
+    "condition": {
+      "urlFilter": "||testsafebrowsing.appspot.com/s/malware.html",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=malware-test.satvra.local&threatType=phishing"
+      }
+    },
+    "condition": {
+      "urlFilter": "||malware-test.satvra.local/phishing*",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=malware-test.satvra.local&threatType=malware"
+      }
+    },
+    "condition": {
+      "urlFilter": "||malware-test.satvra.local/malware*",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=phish-irs-refund.fake-tax-portal.com&threatType=phishing"
+      }
+    },
+    "condition": {
+      "urlFilter": "||phish-irs-refund.fake-tax-portal.com^",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/warning.html?blockedDomain=usps-reschedule-delivery-alert.net&threatType=phishing"
+      }
+    },
+    "condition": {
+      "urlFilter": "||usps-reschedule-delivery-alert.net^",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

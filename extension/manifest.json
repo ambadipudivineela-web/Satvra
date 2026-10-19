@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "SATVRA — Trust What You Browse",
+  "version": "1.0.0",
+  "description": "Privacy-conscious browser security extension. Detects known threats, prioritizes official public sources, and explains risk signals without false safety claims.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SATVRA Website Trust & Threat Inspector",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "declarativeNetRequest",
+    "webNavigation",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "satvra_threat_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}
