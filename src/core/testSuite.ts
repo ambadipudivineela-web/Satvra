@@ -14,6 +14,7 @@
 import { normalizeUrl, extractCanonicalDomain } from './urlNormalizer.ts';
 import { matchOfficialDomain, searchOfficialSources } from './officialSources/matcher.ts';
 import { ThreatEvaluationService } from './threatIntel/threatService.ts';
+import { GoogleWebRiskProvider } from './threatIntel/googleWebRiskProvider.ts';
 import { generateDnrRules } from './dnrRules/ruleGenerator.ts';
 
 export interface TestCaseResult {
@@ -146,7 +147,7 @@ export async function runAllTests(): Promise<TestSuiteSummary> {
   {
     const s = 'Fail-Closed Behavior';
     const service = new ThreatEvaluationService();
-    // Configure with an invalid provider that forces an error
+    // Configure with an unconfigured provider that forces an error
     service.updateSettings({ activeProvider: 'google-web-risk' }); // Unconfigured key should error
 
     const e = await service.evaluateUrl('https://example.com/test');
@@ -155,6 +156,32 @@ export async function runAllTests(): Promise<TestSuiteSummary> {
       'Unconfigured provider fails closed to CHECK_UNAVAILABLE (never reports clean)',
       e.status === 'CHECK_UNAVAILABLE' && Boolean(e.threatResult.error),
       e.status,
+      'CHECK_UNAVAILABLE'
+    );
+
+    // Verify key format validator rejects placeholders like "Your api key" and "MY_KEY"
+    const isPlaceholderValid = GoogleWebRiskProvider.isValidGoogleApiKey('Your api key');
+    assert(s, 'Rejects placeholder "Your api key" as invalid key format', !isPlaceholderValid, isPlaceholderValid, false);
+
+    const isMyKeyValid = GoogleWebRiskProvider.isValidGoogleApiKey('MY_KEY');
+    assert(s, 'Rejects "MY_KEY" as invalid key format', !isMyKeyValid, isMyKeyValid, false);
+
+    // Verify key format validator accepts standard Google API key format (AIzaSy...)
+    const mockGoogleKey = 'AIza' + '0123456789abcdefghijklmnopqrstuvwxy';
+    const isValidFormat = GoogleWebRiskProvider.isValidGoogleApiKey(mockGoogleKey);
+    assert(s, 'Accepts valid Google Cloud API key format (AIza...)', isValidFormat, isValidFormat, true);
+
+    // Verify service instantiated with placeholder key fails closed and reports unconfigured
+    const serviceWithPlaceholder = new ThreatEvaluationService('Your api key');
+    assert(s, 'hasValidWebRiskKey returns false for placeholder key', !serviceWithPlaceholder.hasValidWebRiskKey(), serviceWithPlaceholder.hasValidWebRiskKey(), false);
+
+    serviceWithPlaceholder.updateSettings({ activeProvider: 'google-web-risk' });
+    const e2 = await serviceWithPlaceholder.evaluateUrl('https://example.com/test');
+    assert(
+      s,
+      'Service with placeholder key fails closed to CHECK_UNAVAILABLE with actionable instructions',
+      e2.status === 'CHECK_UNAVAILABLE' && Boolean(e2.threatResult.error?.includes('WEB_RISK_API_KEY')),
+      e2.status,
       'CHECK_UNAVAILABLE'
     );
   }

@@ -13,18 +13,55 @@ export class GoogleWebRiskProvider implements ThreatIntelProvider {
   public readonly id = 'google-web-risk';
   public readonly displayName = 'Google Web Risk (Commercial Threat API)';
 
+  // Circuit breaker state to prevent repeated failing requests and error spam
+  private static authFailure = false;
+  private static authFailureReason = '';
+  public static hasWarned = false;
+
   constructor(private readonly apiKey?: string) {}
 
+  /**
+   * Validates whether a given key has the syntax of a genuine Google Cloud API key.
+   * Google Cloud API keys start with 'AIza' and are typically 39 characters long,
+   * containing only alphanumeric characters, underscores, and hyphens.
+   * Placeholders like "Your api key", "YOUR_API_KEY", "MY_KEY", etc., are rejected.
+   */
+  public static isValidGoogleApiKey(key?: string): boolean {
+    if (!key || typeof key !== 'string') return false;
+    const trimmed = key.trim();
+    if (!trimmed.startsWith('AIza')) return false;
+    if (/\s/.test(trimmed)) return false;
+    if (trimmed.length < 30 || trimmed.length > 55) return false;
+    if (!/^AIza[0-9A-Za-z_-]+$/.test(trimmed)) return false;
+    return true;
+  }
+
   public isConfigured(): boolean {
-    return Boolean(this.apiKey && this.apiKey.trim().length > 0 && !this.apiKey.includes('MY_KEY'));
+    if (GoogleWebRiskProvider.authFailure) {
+      return false;
+    }
+    return GoogleWebRiskProvider.isValidGoogleApiKey(this.apiKey);
+  }
+
+  public static resetCircuitBreaker() {
+    GoogleWebRiskProvider.authFailure = false;
+    GoogleWebRiskProvider.authFailureReason = '';
+    GoogleWebRiskProvider.hasWarned = false;
   }
 
   public async checkUrl(normalizedUrl: string): Promise<ThreatCheckResult> {
     if (!this.isConfigured()) {
+      let message = 'Google Web Risk API Key is not configured. Set a valid WEB_RISK_API_KEY (starts with AIza...) in the server environment.';
+      if (GoogleWebRiskProvider.authFailure) {
+        message = `Google Web Risk API rejected credentials: ${GoogleWebRiskProvider.authFailureReason || 'API key not valid'}. To fix, configure a valid WEB_RISK_API_KEY in the server environment and ensure Web Risk API is enabled in Google Cloud Console.`;
+      } else if (this.apiKey && this.apiKey.trim().length > 0 && !GoogleWebRiskProvider.isValidGoogleApiKey(this.apiKey)) {
+        message = 'Google Web Risk API Key in environment is a placeholder or invalid format (Google API keys must start with "AIza"). Configure a genuine WEB_RISK_API_KEY in the server environment.';
+      }
       throw new ThreatProviderError(
         this.id,
-        'Google Web Risk API Key is not configured. Set WEB_RISK_API_KEY in environment or settings.',
-        false
+        message,
+        false,
+        400
       );
     }
 
@@ -55,6 +92,21 @@ export class GoogleWebRiskProvider implements ThreatIntelProvider {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errMsg = errorData.error?.message || `HTTP ${response.status}`;
+
+        // If authentication error (e.g. 400 "API key not valid", 401/403 forbidden/API not enabled),
+        // trip circuit breaker and throttle warning to once without logging the key
+        if (response.status === 400 || response.status === 401 || response.status === 403) {
+          GoogleWebRiskProvider.authFailure = true;
+          GoogleWebRiskProvider.authFailureReason = errMsg;
+          if (!GoogleWebRiskProvider.hasWarned) {
+            GoogleWebRiskProvider.hasWarned = true;
+            console.warn(
+              `[SATVRA] Google Web Risk API authentication error: ${errMsg}. ` +
+              `To fix, configure a valid WEB_RISK_API_KEY in the server environment with Web Risk API enabled in Google Cloud Console.`
+            );
+          }
+        }
+
         throw new ThreatProviderError(this.id, `Google Web Risk API Error: ${errMsg}`, response.status >= 500, response.status);
       }
 

@@ -59,6 +59,10 @@ export class ThreatEvaluationService {
     return this.cache.size;
   }
 
+  public hasValidWebRiskKey(): boolean {
+    return this.webRiskProvider.isConfigured();
+  }
+
   /**
    * Main evaluation pipeline
    */
@@ -188,7 +192,9 @@ export class ThreatEvaluationService {
       try {
         return await this.webRiskProvider.checkUrl(url);
       } catch (err) {
-        console.warn('Google Web Risk check failed:', (err as Error)?.message);
+        if (!GoogleWebRiskProvider.hasWarned) {
+          console.warn('Google Web Risk check failed:', (err as Error)?.message);
+        }
       }
     }
 

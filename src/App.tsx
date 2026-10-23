@@ -3,7 +3,7 @@
  * Search-First Web Security & Official-Source Verification Platform
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   ShieldAlert,
@@ -25,6 +25,10 @@ import {
   AlertTriangle,
   Compass,
   Sliders,
+  History,
+  Clock,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { WebsiteEvaluation, OfficialSourceRecord, ProviderType } from './core/types.ts';
 import { SearchResponse, SearchResultItem } from './core/search/types.ts';
@@ -73,6 +77,68 @@ export default function App() {
   const [urlhausKey, setUrlhausKey] = useState('');
   const [settingsSavedMsg, setSettingsSavedMsg] = useState(false);
 
+  // --- LocalStorage Search History State ---
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('satvra_recent_searches');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showHistory, setShowHistory] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search history dropdown on outside click
+  useEffect(() => {
+    function handlePointerDown(e: PointerEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowHistory(false);
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
+  const saveSearchToHistory = (queryText: string) => {
+    const q = queryText.trim();
+    if (!q || isLikelyUrl(q)) return;
+
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((item) => item.toLowerCase() !== q.toLowerCase());
+      const updated = [q, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem('satvra_recent_searches', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Unable to save search history to localStorage:', err);
+      }
+      return updated;
+    });
+  };
+
+  const removeSearchItem = (itemToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecentSearches((prev) => {
+      const updated = prev.filter((item) => item !== itemToRemove);
+      try {
+        localStorage.setItem('satvra_recent_searches', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Unable to update search history:', err);
+      }
+      return updated;
+    });
+  };
+
+  const clearAllSearchHistory = () => {
+    try {
+      localStorage.removeItem('satvra_recent_searches');
+    } catch (err) {
+      console.warn('Unable to clear search history:', err);
+    }
+    setRecentSearches([]);
+    setShowHistory(false);
+  };
+
   // Execute Web Search
   const executeSearch = async (term: string) => {
     const q = (term || '').trim();
@@ -86,6 +152,10 @@ export default function App() {
       checkExplicitUrl(q);
       return;
     }
+
+    // Save to localStorage search history
+    saveSearchToHistory(q);
+    setShowHistory(false);
 
     setSearchLoading(true);
     setSearchError(null);
@@ -317,39 +387,90 @@ export default function App() {
               </p>
             </div>
 
-            {/* Prominent Search Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                executeSearch(searchQuery);
-              }}
-              className="max-w-3xl mx-auto relative flex items-center shadow-lg"
-            >
-              <div className="absolute left-4 text-slate-400">
-                <Search className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search the web (e.g. official government job notifications, IRS tax refund, renew passport)..."
-                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-11 pr-28 py-3.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={searchLoading}
-                className="absolute right-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5"
+            {/* Prominent Search Input Form & Recent Searches Dropdown */}
+            <div ref={searchContainerRef} className="max-w-3xl mx-auto relative">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowHistory(false);
+                  executeSearch(searchQuery);
+                }}
+                className="relative flex items-center shadow-lg"
               >
-                {searchLoading ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Searching</span>
-                  </>
-                ) : (
-                  <span>Search</span>
-                )}
-              </button>
-            </form>
+                <div className="absolute left-4 text-slate-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onFocus={() => setShowHistory(true)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search the web (e.g. official government job notifications, IRS tax refund, renew passport)..."
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-11 pr-28 py-3.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={searchLoading}
+                  className="absolute right-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  {searchLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Searching</span>
+                    </>
+                  ) : (
+                    <span>Search</span>
+                  )}
+                </button>
+              </form>
+
+              {/* LocalStorage Recent Search History Dropdown */}
+              {showHistory && recentSearches.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl z-30 overflow-hidden divide-y divide-slate-800">
+                  <div className="px-3.5 py-2 flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/70">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Recent Searches</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearAllSearchHistory}
+                      className="text-slate-400 hover:text-red-400 transition-colors text-[11px]"
+                    >
+                      Clear history
+                    </button>
+                  </div>
+
+                  <ul className="py-1 max-h-60 overflow-y-auto">
+                    {recentSearches.map((item) => (
+                      <li
+                        key={item}
+                        onClick={() => {
+                          setSearchQuery(item);
+                          setShowHistory(false);
+                          executeSearch(item);
+                        }}
+                        className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/80 cursor-pointer text-xs text-slate-200 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2.5 truncate mr-2">
+                          <History className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
+                          <span className="truncate">{item}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => removeSearchItem(item, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-slate-500 rounded transition-all shrink-0"
+                          title="Remove from history"
+                          aria-label={`Remove ${item} from history`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
 
             {/* Query Presets & Helpful Search Starters */}
             <div className="max-w-3xl mx-auto flex flex-wrap items-center gap-2 text-xs">
@@ -1141,6 +1262,25 @@ export default function App() {
                     onChange={(e) => setBlockThreats(e.target.checked)}
                   />
                 </div>
+              </div>
+
+              {/* LocalStorage Search History Controls */}
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-white block">Recent Search History</span>
+                  <span className="text-[11px] text-slate-400">
+                    Stored locally in your browser's localStorage ({recentSearches.length} {recentSearches.length === 1 ? 'query' : 'queries'}).
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearAllSearchHistory}
+                  disabled={recentSearches.length === 0}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Clear History</span>
+                </button>
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex items-center justify-between">

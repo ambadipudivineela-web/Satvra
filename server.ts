@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -77,7 +78,7 @@ app.get('/api/threat-intel/status', (_req, res) => {
   res.json({
     activeProvider: threatService.getSettings().activeProvider,
     cacheEntriesCount: threatService.getCacheSize(),
-    hasWebRiskKey: Boolean(process.env.WEB_RISK_API_KEY && !process.env.WEB_RISK_API_KEY.includes('MY_KEY')),
+    hasWebRiskKey: threatService.hasValidWebRiskKey(),
     settings: threatService.getSettings(),
   });
 });
@@ -147,10 +148,19 @@ app.post('/api/tests/run', async (_req, res) => {
 // Mount Vite in development mode
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
+  const httpServer = http.createServer(app);
 
   if (!isProduction) {
+    const isBehindHttps = Boolean(process.env.APP_URL?.startsWith('https'));
+
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+          ...(isBehindHttps ? { clientPort: 443 } : {}),
+        },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -161,7 +171,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[SATVRA] Server running at http://0.0.0.0:${PORT}`);
   });
 }
