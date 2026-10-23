@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import JSZip from 'jszip';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, build as viteBuild } from 'vite';
 import { ThreatEvaluationService } from './src/core/threatIntel/threatService.ts';
 import { searchOfficialSources } from './src/core/officialSources/matcher.ts';
 import { OFFICIAL_SOURCES_DIRECTORY } from './src/core/officialSources/directory.ts';
@@ -14,7 +14,7 @@ import { WebSearchService } from './src/core/search/searchService.ts';
 
 dotenv.config();
 
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const app = express();
 
 app.use(express.json());
@@ -145,12 +145,44 @@ app.post('/api/tests/run', async (_req, res) => {
   }
 });
 
-// Mount Vite in development mode
+// Mount Vite in development mode or serve built dist in production
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
   const httpServer = http.createServer(app);
+  const distDir = path.resolve('dist');
+  const distIndex = path.resolve(distDir, 'index.html');
 
-  if (!isProduction) {
+  if (isProduction) {
+    // If running in production (e.g. Render, Railway) but dist/ was not pre-built, build it on the fly
+    if (!fs.existsSync(distIndex)) {
+      console.log('[SATVRA] Production build not found at dist/index.html. Running automated vite build...');
+      try {
+        await viteBuild();
+        console.log('[SATVRA] Automated production build completed successfully.');
+      } catch (buildErr) {
+        console.error('[SATVRA] Automated vite build failed, falling back to dynamic server:', buildErr);
+      }
+    }
+
+    if (fs.existsSync(distIndex)) {
+      app.use(express.static(distDir));
+      app.get('*', (_req, res, next) => {
+        res.sendFile(distIndex, (err) => {
+          if (err) {
+            console.error('[SATVRA] Error sending dist/index.html:', err.message);
+            next(err);
+          }
+        });
+      });
+    } else {
+      console.warn('[SATVRA] dist/index.html unavailable; mounting Vite middleware fallback...');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    }
+  } else {
     const isBehindHttps = Boolean(process.env.APP_URL?.startsWith('https'));
 
     const vite = await createViteServer({
@@ -164,11 +196,6 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.resolve('dist')));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve('dist/index.html'));
-    });
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
