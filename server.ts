@@ -21,7 +21,12 @@ app.use(express.json());
 
 // Initialize core threat evaluation service & search service
 const threatService = new ThreatEvaluationService(process.env.WEB_RISK_API_KEY);
-const searchService = new WebSearchService(threatService);
+const searchService = new WebSearchService(threatService, {
+  braveApiKey: process.env.BRAVE_SEARCH_API_KEY,
+  serperApiKey: process.env.SERPER_API_KEY,
+  tavilyApiKey: process.env.TAVILY_API_KEY,
+  bingApiKey: process.env.BING_SEARCH_API_KEY,
+});
 
 // 0. Web Search Endpoint (Handles natural language queries, returns verified real results)
 app.get('/api/search', async (req, res) => {

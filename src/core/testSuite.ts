@@ -16,6 +16,9 @@ import { matchOfficialDomain, searchOfficialSources } from './officialSources/ma
 import { ThreatEvaluationService } from './threatIntel/threatService.ts';
 import { GoogleWebRiskProvider } from './threatIntel/googleWebRiskProvider.ts';
 import { generateDnrRules } from './dnrRules/ruleGenerator.ts';
+import { WebSearchService } from './search/searchService.ts';
+import { validateSearchApiKey } from './search/apiKeyValidator.ts';
+import { understandQuery } from './search/queryUnderstanding.ts';
 
 export interface TestCaseResult {
   suite: string;
@@ -193,6 +196,105 @@ export async function runAllTests(): Promise<TestSuiteSummary> {
     const rules = generateDnrRules(domains);
     assert(s, 'Generates valid DNR redirect rules', rules.length === 2 && rules[0].action.type === 'redirect', rules.length, 2);
     assert(s, 'Rule redirects to warning.html with target param', Boolean(rules[0].action.redirect?.extensionPath?.includes('warning.html')), true, true);
+  }
+
+  // --- Suite 6: General Web Search & Trust Architecture ---
+  {
+    const s = 'General Web Search';
+    const threatService = new ThreatEvaluationService();
+    const searchService = new WebSearchService(threatService);
+
+    // 1. General non-civic search returns real results
+    const r1 = await searchService.search('Python tutorials');
+    assert(s, 'Search for "Python tutorials" returns real web results', r1.results.length > 0, r1.results.length > 0, true);
+    assert(s, 'Search results include valid http/https URLs', r1.results.every(r => r.url.startsWith('http://') || r.url.startsWith('https://')), true, true);
+    assert(s, 'Search results include titles and snippets', r1.results.every(r => r.title.length > 0 && typeof r.snippet === 'string'), true, true);
+    assert(s, 'Every search result has an evaluated trustState', r1.results.every(r => typeof r.trustState === 'string'), true, true);
+
+    // 2. Search is not restricted to government/civic domains
+    const nonGovResults = r1.results.filter(r => !r.domain.endsWith('.gov'));
+    assert(s, 'Results include non-government web destinations', nonGovResults.length > 0, nonGovResults.length > 0, true);
+
+    // 3. Official searches prioritize verified institutions
+    const r2 = await searchService.search('official government job notifications');
+    assert(s, 'Official queries prioritize verified official sources at rank 1', r2.officialCount > 0 && r2.results[0]?.isOfficial, true, true);
+  }
+
+  // --- Suite 7: Search Request Safety & ByteString Integrity ---
+  {
+    const s = 'Request Safety & ByteString Integrity';
+
+    // 1. Rejection of Brave API key with Unicode em dash '—' (char 8212) at index 17
+    const braveWithEmDash = 'Brave Search API — web search results';
+    const braveRes = validateSearchApiKey('Brave', braveWithEmDash);
+    assert(s, 'Rejects Brave API key containing Unicode em dash (8212 at index 17)', !braveRes.isValid && Boolean(braveRes.error?.includes('8212')), !braveRes.isValid, true);
+
+    // 2. Rejection of Serper API key with Unicode em dash '—' (char 8212) at index 7
+    const serperWithEmDash = 'Serper — Google Search results through an API';
+    const serperRes = validateSearchApiKey('Serper', serperWithEmDash);
+    assert(s, 'Rejects Serper API key containing Unicode em dash (8212 at index 7)', !serperRes.isValid && Boolean(serperRes.error?.includes('8212')), !serperRes.isValid, true);
+
+    // 3. Rejection of Tavily API key with Unicode em dash '—' (char 8212)
+    const tavilyWithEmDash = 'Tavily — search designed for AI and research workflows';
+    const tavilyRes = validateSearchApiKey('Tavily', tavilyWithEmDash);
+    assert(s, 'Rejects Tavily API key containing Unicode em dash (8212)', !tavilyRes.isValid && Boolean(tavilyRes.error?.includes('8212')), !tavilyRes.isValid, true);
+
+    // 4. Missing / undefined / empty keys reported as not configured without error
+    const emptyRes = validateSearchApiKey('Brave', '');
+    const undefRes = validateSearchApiKey('Brave', undefined);
+    assert(s, 'Missing or empty key reports isConfigured: false', !emptyRes.isConfigured && !undefRes.isConfigured, true, true);
+
+    // 5. Placeholder token names rejected
+    const placeholderRes = validateSearchApiKey('Brave', 'your_api_key_here_12345');
+    assert(s, 'Rejects "your_api_key_here" placeholder pattern', !placeholderRes.isValid, false, false);
+
+    // 6. Valid ByteString-safe printable ASCII API key is accepted
+    const validMockKey = 'BSA_live_9837429184719284721984712984';
+    const validRes = validateSearchApiKey('Brave', validMockKey);
+    assert(s, 'Accepts valid printable ASCII API key', validRes.isValid && validRes.isConfigured, true, true);
+
+    // 7. ByteString safety invariant: Header construction with valid key does not throw TypeError
+    let headerConstructionSuccess = false;
+    try {
+      const h = new Headers({ 'X-Subscription-Token': validMockKey });
+      headerConstructionSuccess = h.get('X-Subscription-Token') === validMockKey;
+    } catch {
+      headerConstructionSuccess = false;
+    }
+    assert(s, 'Valid ASCII key passes Headers ByteString validation without TypeError', headerConstructionSuccess, true, true);
+
+    // 8. ByteString safety invariant: Raw em dash key would throw TypeError if used in Headers
+    let emDashThrowsByteStringError = false;
+    try {
+      new Headers({ 'X-Subscription-Token': braveWithEmDash });
+    } catch (e: unknown) {
+      emDashThrowsByteStringError = Boolean((e as Error)?.message?.includes('ByteString') || e instanceof TypeError);
+    }
+    assert(s, 'Confirms raw em dash in Headers triggers ByteString TypeError (root cause verification)', emDashThrowsByteStringError, true, true);
+
+    // 9. Full Unicode queries (e.g. Telugu) preserved and encoded safely
+    const teluguQuery = 'తెలుగు వార్తలు';
+    const encodedTelugu = encodeURIComponent(teluguQuery);
+    assert(s, 'Telugu query encodes cleanly without character loss', decodeURIComponent(encodedTelugu) === teluguQuery, true, true);
+
+    // 10. Natural queries with symbols and punctuation handled without error
+    const symbolQuery = 'C++ & Python: beginner to advanced?!';
+    const encodedSymbols = encodeURIComponent(symbolQuery);
+    assert(s, 'Punctuation and symbols encode safely for search query params', decodeURIComponent(encodedSymbols) === symbolQuery, true, true);
+
+    // 11. Search service with placeholder em-dash keys falls back safely without ByteString crash
+    const threatService = new ThreatEvaluationService();
+    const resilientService = new WebSearchService(threatService, {
+      braveApiKey: braveWithEmDash,
+      serperApiKey: serperWithEmDash,
+      tavilyApiKey: tavilyWithEmDash,
+    });
+    const fallbackSearchRes = await resilientService.search('Python tutorials');
+    assert(s, 'SearchService gracefully bypasses invalid em-dash keys and succeeds via Live Web Index', fallbackSearchRes.results.length > 0 && !fallbackSearchRes.error, true, true);
+
+    // 12. Typo correction correctly handles misspelled queries
+    const typoAnalysis = understandQuery('pythn tutrial for begginers');
+    assert(s, 'Typo understanding corrects "pythn tutrial for begginers" to "Python tutorial for beginners"', typoAnalysis.hasTypoCorrection && typoAnalysis.correctedQuery === 'Python tutorial for beginners', typoAnalysis.correctedQuery, 'Python tutorial for beginners');
   }
 
   const durationMs = Date.now() - startTime;

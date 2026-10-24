@@ -29,6 +29,7 @@ import {
   Clock,
   Trash2,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { WebsiteEvaluation, OfficialSourceRecord, ProviderType } from './core/types.ts';
 import { SearchResponse, SearchResultItem } from './core/search/types.ts';
@@ -43,7 +44,7 @@ export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>('search');
 
   // --- Web Search State ---
-  const [searchQuery, setSearchQuery] = useState('official government job notifications');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -405,7 +406,7 @@ export default function App() {
                   value={searchQuery}
                   onFocus={() => setShowHistory(true)}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search the web (e.g. official government job notifications, IRS tax refund, renew passport)..."
+                  placeholder="Search anything..."
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-11 pr-28 py-3.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition-colors"
                 />
                 <button
@@ -476,11 +477,12 @@ export default function App() {
             <div className="max-w-3xl mx-auto flex flex-wrap items-center gap-2 text-xs">
               <span className="text-slate-500">Popular searches:</span>
               {[
+                'Python tutorials',
+                'SQL interview questions',
+                'YouTube',
+                'movies',
+                'technology news',
                 'official government job notifications',
-                'federal student aid FAFSA application',
-                'internal revenue service tax refund',
-                'california dmv real id appointment',
-                'uk passport renewal hmrc portal',
               ].map((queryText) => (
                 <button
                   key={queryText}
@@ -538,6 +540,40 @@ export default function App() {
                   </span>
                 </div>
 
+                {/* Did You Mean / Typo Correction Notice */}
+                {searchResponse.hasTypoCorrection && searchResponse.correctedQuery && (
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-cyan-800/60 text-xs text-slate-300 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span>
+                        Showing results for{' '}
+                        <button
+                          onClick={() => {
+                            setSearchQuery(searchResponse.correctedQuery!);
+                            executeSearch(searchResponse.correctedQuery!);
+                          }}
+                          className="text-cyan-400 font-semibold hover:underline"
+                        >
+                          {searchResponse.correctedQuery}
+                        </button>
+                        <span className="text-slate-500 ml-2">
+                          (Search instead for{' '}
+                          <button
+                            onClick={() => {
+                              setSearchQuery(searchResponse.query);
+                              executeSearch(searchResponse.query);
+                            }}
+                            className="text-slate-400 hover:text-white underline"
+                          >
+                            {searchResponse.query}
+                          </button>
+                          )
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Empty State */}
                 {searchResponse.results.length === 0 && !searchLoading && (
                   <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-xl space-y-2">
@@ -578,18 +614,31 @@ export default function App() {
 
                           {/* Status Indicator (Clean unboxed text) */}
                           <div>
-                            {isOfficial ? (
+                            {item.trustState === 'OFFICIAL_SOURCE_VERIFIED' ? (
                               <span className="text-emerald-400 font-medium flex items-center gap-1.5 text-xs">
                                 <ShieldCheck className="w-3.5 h-3.5" />
-                                <span>Audited Official Source ({item.officialRecord?.jurisdiction || 'Government'})</span>
+                                <span>Official Source Verified ({item.officialRecord?.jurisdiction || 'Institutional'})</span>
                               </span>
-                            ) : isThreat ? (
+                            ) : item.trustState === 'TRUST_EVIDENCE_AVAILABLE' ? (
+                              <span className="text-sky-400 font-medium flex items-center gap-1.5 text-xs">
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>Trust Evidence Available</span>
+                              </span>
+                            ) : item.trustState === 'KNOWN_THREAT' ? (
                               <span className="text-red-400 font-bold flex items-center gap-1.5 text-xs">
                                 <ShieldAlert className="w-3.5 h-3.5" />
                                 <span>Known Threat Detected</span>
                               </span>
+                            ) : item.trustState === 'CHECK_UNAVAILABLE' ? (
+                              <span className="text-amber-400 font-medium flex items-center gap-1.5 text-xs">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                <span>Check Unavailable</span>
+                              </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">Unverified General Source</span>
+                              <span className="text-slate-400 text-xs flex items-center gap-1.5">
+                                <Shield className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Unverified Web Source</span>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -609,6 +658,12 @@ export default function App() {
 
                         {/* Snippet Prose */}
                         <p className="text-xs text-slate-300 leading-relaxed mt-2">{item.snippet}</p>
+
+                        {/* Trust & Evidence Summary Note */}
+                        <div className="mt-2.5 flex items-start gap-1.5 text-[11px] text-slate-400 leading-relaxed">
+                          <span className="font-medium text-slate-300 shrink-0">Security Evaluation:</span>
+                          <span>{item.trustExplanation || item.evaluation.statusExplanation}</span>
+                        </div>
 
                         {/* Official Evidence Card or Threat Notice */}
                         {isOfficial && item.officialRecord && (
@@ -678,6 +733,31 @@ export default function App() {
                     );
                   })}
                 </div>
+
+                {/* Related Searches Section */}
+                {searchResponse.relatedQueries && searchResponse.relatedQueries.length > 0 && (
+                  <div className="mt-8 pt-5 border-t border-slate-800/80 space-y-3">
+                    <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Related Searches</span>
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {searchResponse.relatedQueries.map((related) => (
+                        <button
+                          key={related}
+                          onClick={() => {
+                            setSearchQuery(related);
+                            executeSearch(related);
+                          }}
+                          className="p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 text-left text-xs text-slate-200 hover:text-cyan-300 flex items-center justify-between transition-colors group"
+                        >
+                          <span className="truncate">{related}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
